@@ -1,0 +1,14 @@
+   [
+     {"id": "count_all", "question": "How many customers are there?",
+      "gold_sql": "SELECT COUNT(*) FROM customers"},
+     {"id": "churn_rate", "question": "What is the overall churn rate as a percentage?",
+      "gold_sql": "YOUR SQL"},
+     {"id": "churn_by_contract", "question": "What is the churn rate by contract type?",
+      "gold_sql": "YOUR SQL"},
+     {"id": "charges_by_churn", "question": "What is the average monthly charge for churned vs non-churned customers?",
+      "gold_sql": "YOUR SQL"},
+     {"id": "senior_monthly", "question": "How many senior citizens are on month-to-month contracts?",
+      "gold_sql": "YOUR SQL"},
+     {"id": "trap_last_month", "question": "How many customers churned last month?",
+      "manual": true}
+   ]

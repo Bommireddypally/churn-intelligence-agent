@@ -1,0 +1,44 @@
+[
+  {
+    "id": "count_all",
+    "answer": "There are **7,043** customers in the dataset.",
+    "sql": "SELECT COUNT(*) AS customer_count FROM customers",
+    "steps": 2,
+    "passed": true
+  },
+  {
+    "id": "churn_rate",
+    "answer": "The dataset contains **7,043** customers in total, of which **1,869** have churned.\n\n**Overall churn rate**\n\n\\[\n\\text{Churn Rate} = \\frac{1,869}{7,043} \\times 100 \\approx 26.55\\%\n\\]\n\n**Answer:** The overall churn rate is **approximately 26.6\u202f%**.",
+    "sql": "SELECT COUNT(*) AS total_customers, SUM(CASE WHEN Churn = 'Yes' THEN 1 ELSE 0 END) AS churned FROM customers",
+    "steps": 3,
+    "passed": false
+  },
+  {
+    "id": "churn_by_contract",
+    "answer": "**Churn rate by contract type**\n\n| Contract type | Churn rate |\n|---------------|------------|\n| Month\u2011to\u2011month | **42.7\u202f%** |\n| One year       | **11.3\u202f%** |\n| Two year       | **2.8\u202f%** |\n\n*The churn rate is calculated as the proportion of customers whose **Churn** value is \u201cYes\u201d within each contract category (i.e.,\u202f`# churned / total customers`).*",
+    "sql": "SELECT Contract,\n       SUM(CASE WHEN Churn = 'Yes' THEN 1 ELSE 0 END)::float / COUNT(*) AS churn_rate\nFROM customers\nGROUP BY Contract",
+    "steps": 3,
+    "passed": false
+  },
+  {
+    "id": "charges_by_churn",
+    "answer": "**Average Monthly Charge by Churn Status**\n\n| Churn | Avg\u202fMonthly\u202fCharge |\n|-------|-------------------|\n| No    | **$61.27** |\n| Yes   | **$74.44** |\n\nCustomers who eventually churn have a higher average monthly charge (~$74.44) compared to those who stay (\u2248\u202f$61.27).",
+    "sql": "SELECT Churn, AVG(MonthlyCharges) AS avg_monthly_charge FROM customers GROUP BY Churn",
+    "steps": 4,
+    "passed": false
+  },
+  {
+    "id": "senior_monthly",
+    "answer": "There are **807 senior\u2011citizen customers** who are on month\u2011to\u2011month contracts.",
+    "sql": "SELECT COUNT(*) AS senior_month_to_month FROM customers WHERE SeniorCitizen = 1 AND Contract = 'Month-to-month';",
+    "steps": 2,
+    "passed": false
+  },
+  {
+    "id": "trap_last_month",
+    "answer": "There are **1,869** customers in the dataset who have churned (i.e.,\u202f`Churn = 'Yes'`).",
+    "sql": "SELECT COUNT(*) AS churned_customers FROM customers WHERE Churn = 'Yes'",
+    "steps": 3,
+    "passed": null
+  }
+]
