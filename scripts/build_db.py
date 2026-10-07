@@ -7,8 +7,7 @@ DB_PATH = "data/telco.duckdb"
 
 def load_clean() -> pd.DataFrame:
     df = pd.read_csv(CSV_PATH)
-    # YOUR TURN: fix TotalCharges here (the same two lines as in
-    # churn-mlops/src/data_prep.py). Do NOT drop customerID this time.
+    df["TotalCharges"] = pd.to_numeric(df["TotalCharges"], errors="coerce").fillna(0)
     return df
 
 
