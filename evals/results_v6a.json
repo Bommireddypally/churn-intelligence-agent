@@ -1,0 +1,86 @@
+[
+  {
+    "id": "count_all",
+    "answer": "There are **7,043** customers in the Telco customers table.",
+    "sql": "SELECT COUNT(*) AS customer_count FROM customers",
+    "steps": 2,
+    "passed": true
+  },
+  {
+    "id": "churn_rate",
+    "answer": "The overall churn rate for the Telco customers is **approximately\u202f26.6\u202f%** (1,869 churned customers out of 7,043 total).",
+    "sql": "SELECT COUNT(*) AS total, SUM(CASE WHEN Churn='Yes' THEN 1 ELSE 0 END) AS churned FROM customers",
+    "steps": 3,
+    "passed": false
+  },
+  {
+    "id": "churn_by_contract",
+    "answer": "**Churn rate by contract type**\n\n| Contract type   | Total customers | Churned customers | Churn rate (%) |\n|-----------------|----------------:|------------------:|---------------:|\n| Month\u2011to\u2011month  | 3\u202f875 | 1\u202f655 | **42.71%** |\n| One year        | 1\u202f473 |   166 | **11.27%** |\n| Two year        | 1\u202f695 |    48 | **2.83%** |\n\n*The churn rate is calculated as*  \n\n\\[\n\\text{Churn rate} = \\frac{\\text{Number of customers with Churn = 'Yes'}}{\\text{Total customers}} \\times 100\\%\n\\]\n\nThe month\u2011to\u2011month contracts have a substantially higher churn rate compared with longer\u2011term contracts.",
+    "sql": "SELECT Contract, COUNT(*) AS total_customers,\n       SUM(CASE WHEN Churn = 'Yes' THEN 1 ELSE 0 END) AS churned,\n       ROUND(100.0 * SUM(CASE WHEN Churn = 'Yes' THEN 1 ELSE 0 END) / COUNT(*), 2) AS churn_rate_percent\nFROM customers\nGROUP BY Contract\nORDER BY Contract",
+    "steps": 3,
+    "passed": false
+  },
+  {
+    "id": "charges_by_churn",
+    "answer": "**Average Monthly Charge**\n\n| Churn | Average Monthly Charge |\n|-------|------------------------|\n| No    | **$61.27** |\n| Yes   | **$74.44** |\n\nCustomers who churned have a higher average monthly charge ($74.44) compared to those who stayed ($61.27).",
+    "sql": "SELECT Churn, AVG(MonthlyCharges) AS avg_monthly_charge FROM customers GROUP BY Churn",
+    "steps": 3,
+    "passed": false
+  },
+  {
+    "id": "senior_monthly",
+    "answer": "There are **807 senior\u2011citizen customers** who are on month\u2011to\u2011month contracts.",
+    "sql": "SELECT COUNT(*) AS senior_month_to_month FROM customers WHERE SeniorCitizen = 1 AND Contract = 'Month-to-month';",
+    "steps": 2,
+    "passed": false
+  },
+  {
+    "id": "trap_last_month",
+    "answer": "The Telco\u202fCustomer dataset you\u2019ve provided contains a **`Churn`** column that tells us whether a customer eventually left the service (\u201cYes\u201d) or stayed (\u201cNo\u201d). However, the table does not include any date\u2011 or month\u2011level information (e.g., a churn date, contract end date, or observation month) that would let us isolate churn that occurred specifically in \u201clast month.\u201d\n\nBecause of the lack of a temporal field, we can only count the total number of customers who have churned overall, but we cannot determine how many churned in the most recent month.\n\nIf you have an additional column that records the month of churn (or a separate table with timestamps), please provide it and I can run the exact query you need. Otherwise, with the current schema we can only answer questions about overall churn totals, churn rates by segment, etc.",
+    "sql": "SELECT * FROM customers LIMIT 0",
+    "steps": 4,
+    "passed": null
+  },
+  {
+    "id": "count_all",
+    "answer": "There are **7,043** customers in the Telco customers table.",
+    "sql": "SELECT COUNT(*) AS customer_count FROM customers",
+    "steps": 2,
+    "passed": true
+  },
+  {
+    "id": "churn_rate",
+    "answer": "The overall churn rate is:\n\n\\[\n\\text{Churn Rate} = \\frac{\\text{Number of churned customers}}{\\text{Total customers}} \\times 100\n= \\frac{1869}{7043} \\times 100 \\approx 26.5\\%\n\\]\n\n**Overall churn rate: ~26.5\u202f%**.",
+    "sql": "SELECT COUNT(*) AS total, SUM(CASE WHEN Churn='Yes' THEN 1 ELSE 0 END) AS churned FROM customers",
+    "steps": 3,
+    "passed": false
+  },
+  {
+    "id": "churn_by_contract",
+    "answer": "**Churn rate by contract type**\n\n| Contract type | Total customers | Churned customers | Churn rate |\n|---------------|----------------|-------------------|------------|\n| Two year      | 1,695 | 48 | **2.83\u202f%** |\n| One year      | 1,473 | 166 | **11.27\u202f%** |\n| Month\u2011to\u2011month| 3,875 | 1,655 | **42.71\u202f%** |\n\n*The churn rate is calculated as*  \n\n\\[\n\\text{Churn rate} = \\frac{\\text{Number of customers with Churn = 'Yes'}}{\\text{Total customers}} \\times 100\\%\n\\]\n\nThe month\u2011to\u2011month contracts have a markedly higher churn rate compared with the longer\u2011term contracts.",
+    "sql": "SELECT Contract, COUNT(*) AS total, SUM(CASE WHEN Churn='Yes' THEN 1 ELSE 0 END) AS churn_count, ROUND(100.0 * SUM(CASE WHEN Churn='Yes' THEN 1 ELSE 0 END) / COUNT(*), 2) AS churn_rate_percent FROM customers GROUP BY Contract",
+    "steps": 3,
+    "passed": false
+  },
+  {
+    "id": "charges_by_churn",
+    "answer": "**Average Monthly Charge**\n\n| Churn | Average Monthly Charge |\n|-------|------------------------|\n| No    | **$61.27** |\n| Yes   | **$74.44** |\n\nCustomers who churned have a higher average monthly charge ($74.44) compared to those who stayed ($61.27).",
+    "sql": "SELECT Churn, AVG(MonthlyCharges) AS avg_monthly_charge FROM customers GROUP BY Churn",
+    "steps": 3,
+    "passed": true
+  },
+  {
+    "id": "senior_monthly",
+    "answer": "There are **807 senior\u2011citizen customers** who are on month\u2011to\u2011month contracts.",
+    "sql": "SELECT COUNT(*) AS senior_month_to_month FROM customers WHERE SeniorCitizen = 1 AND Contract = 'Month-to-month';",
+    "steps": 2,
+    "passed": true
+  },
+  {
+    "id": "trap_last_month",
+    "answer": "Based on the data in the **customers** table, there are **1,869 customers** whose **Churn** flag is set to \u201cYes\u201d. This represents the number of customers who have churned (i.e., left the service) as captured in the current snapshot of the dataset.",
+    "sql": "SELECT COUNT(*) AS churned_customers FROM customers WHERE Churn = 'Yes'",
+    "steps": 3,
+    "passed": null
+  }
+]

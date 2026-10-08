@@ -13,7 +13,9 @@ MODEL = os.environ["GROQ_MODEL"]
 
 client = OpenAI(
     api_key=os.environ["GROQ_API_KEY"],
-    base_url="https://api.groq.com/openai/v1",
+   base_url="https://api.groq.com/openai/v1",
+    timeout=30.0,
+   max_retries=2,
 )
 
 # Placeholder. Step F replaces this with the schema and business rules.
@@ -34,9 +36,10 @@ def run_agent(question: str) -> dict:
     for step in range(MAX_STEPS):
         # Ask the model what to do next
         resp = client.chat.completions.create(
-            model=MODEL,
-            messages=messages,
-            tools=TOOLS,
+               model=MODEL,
+               messages=messages,
+               tools=TOOLS,
+               temperature=0,
         )
         msg = resp.choices[0].message
 
