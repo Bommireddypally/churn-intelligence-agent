@@ -10,5 +10,37 @@
      {"id": "senior_monthly", "question": "How many senior citizens are on month-to-month contracts?",
       "gold_sql": "YOUR SQL"},
      {"id": "trap_last_month", "question": "How many customers churned last month?",
-      "manual": true}
-   ]
+      "manual": true},
+      
+     {
+    "id": "count_all",
+    "question": "How many customers are there?",
+    "gold_sql": "SELECT COUNT(*) FROM customers"
+  },
+  {
+    "id": "churn_rate",
+    "question": "What is the overall churn rate as a percentage?",
+    "gold_sql": "SELECT ROUND(100.0 * SUM(CASE WHEN Churn = 'Yes' THEN 1 ELSE 0 END) / COUNT(*), 2) FROM customers"
+  },
+  {
+    "id": "churn_by_contract",
+    "question": "What is the churn rate by contract type?",
+    "gold_sql": "SELECT Contract, ROUND(100.0 * SUM(CASE WHEN Churn = 'Yes' THEN 1 ELSE 0 END) / COUNT(*), 2) FROM customers GROUP BY Contract"
+  },
+  {
+    "id": "charges_by_churn",
+    "question": "What is the average monthly charge for churned vs non-churned customers?",
+    "gold_sql": "SELECT Churn, ROUND(AVG(MonthlyCharges), 2) FROM customers GROUP BY Churn"
+  },
+  {
+    "id": "senior_monthly",
+    "question": "How many senior citizens are on month-to-month contracts?",
+    "gold_sql": "SELECT COUNT(*) FROM customers WHERE SeniorCitizen = 1 AND Contract = 'Month-to-month'"
+  },
+  {
+    "id": "trap_last_month",
+    "question": "How many customers churned last month?",
+    "manual": true
+  }
+]
+   
