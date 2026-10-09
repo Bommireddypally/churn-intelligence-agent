@@ -1,0 +1,44 @@
+[
+  {
+    "id": "count_all",
+    "answer": "There are **7,043** customers in the dataset.",
+    "sql": "SELECT COUNT(*) AS customer_count FROM customers",
+    "steps": 2,
+    "passed": true
+  },
+  {
+    "id": "churn_rate",
+    "answer": "The overall churn rate is:\n\n\\[\n\\text{Churn Rate} = \\frac{\\text{Number of churned customers}}{\\text{Total customers}} \\times 100\n= \\frac{1869}{7043} \\times 100 \\approx 26.5\\%\n\\]\n\n**Overall churn rate: ~26.5\u202f%**.",
+    "sql": "SELECT COUNT(*) AS total, SUM(CASE WHEN Churn='Yes' THEN 1 ELSE 0 END) AS churned FROM customers",
+    "steps": 3,
+    "passed": false
+  },
+  {
+    "id": "churn_by_contract",
+    "answer": "**Churn rate by contract type**\n\n| Contract type   | Total customers | Churned customers | Churn rate (%) |\n|-----------------|----------------:|------------------:|---------------:|\n| Month\u2011to\u2011month  | 3\u202f875 | 1\u202f655 | **42.71\u202f%** |\n| One year        | 1\u202f473 |   166 | **11.27\u202f%** |\n| Two year        | 1\u202f695 |    48 | **2.83\u202f%** |\n\n*The churn rate is calculated as*  \n\n\\[\n\\text{Churn rate} = \\frac{\\text{Number of customers with Churn = 'Yes'}}{\\text{Total customers}} \\times 100\\%\n\\]\n\nCustomers on month\u2011to\u2011month contracts have a much higher churn propensity compared with those on longer\u2011term contracts.",
+    "sql": "SELECT Contract, COUNT(*) AS total_customers,\n       SUM(CASE WHEN Churn='Yes' THEN 1 ELSE 0 END) AS churned_customers,\n       ROUND(100.0 * SUM(CASE WHEN Churn='Yes' THEN 1 ELSE 0 END) / COUNT(*), 2) AS churn_rate_percent\nFROM customers\nGROUP BY Contract\nORDER BY Contract",
+    "steps": 3,
+    "passed": true
+  },
+  {
+    "id": "charges_by_churn",
+    "answer": "**Average Monthly Charge**\n\n| Churn | Average Monthly Charge |\n|-------|------------------------|\n| No    | **$61.27** |\n| Yes   | **$74.44** |\n\nCustomers who churned have a higher average monthly charge ($74.44) compared to those who stayed ($61.27).",
+    "sql": "SELECT Churn, AVG(MonthlyCharges) AS avg_monthly_charge FROM customers GROUP BY Churn",
+    "steps": 3,
+    "passed": true
+  },
+  {
+    "id": "senior_monthly",
+    "answer": "There are **807 senior\u2011citizen customers** who are on month\u2011to\u2011month contracts.",
+    "sql": "SELECT COUNT(*) AS senior_month_to_month FROM customers WHERE SeniorCitizen = 1 AND Contract = 'Month-to-month';",
+    "steps": 2,
+    "passed": true
+  },
+  {
+    "id": "trap_last_month",
+    "answer": "The Telco\u202fcustomers table records churn as a simple \u201cYes/No\u201d flag, but it does not contain a date column that tells us when each churn event occurred. Because of that, we can\u2019t isolate churn that happened specifically in the most recent calendar month.  \n\nWhat we can report is the total number of customers in the data set who have churned (i.e.,\u202f`Churn = 'Yes'`):\n\n**Total churned customers:** **1,869**\n\nIf you have a separate column (e.g., a churn\u2011date) or a definition of \u201clast month\u201d (such as customers whose tenure is\u202f1\u202fmonth), let me know and I can refine the query accordingly.",
+    "sql": "SELECT COUNT(*) AS churned_last_month FROM customers WHERE Churn = 'Yes' AND tenure = 1",
+    "steps": 4,
+    "passed": null
+  }
+]
