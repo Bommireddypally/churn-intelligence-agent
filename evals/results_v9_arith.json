@@ -1,0 +1,44 @@
+[
+  {
+    "id": "count_all",
+    "answer": "There are **7,043** customers in the Telco customers table.",
+    "sql": "SELECT COUNT(*) AS customer_count FROM customers",
+    "steps": 2,
+    "passed": true
+  },
+  {
+    "id": "churn_rate",
+    "answer": "The overall churn rate is:\n\n\\[\n\\text{Churn Rate} = \\frac{\\text{Number of churned customers}}{\\text{Total customers}} \\times 100\n= \\frac{1869}{7043} \\times 100 \\approx 26.5\\%\n\\]\n\n**Overall churn rate: ~26.5\u202f%**.",
+    "sql": "SELECT COUNT(*) AS total, SUM(CASE WHEN Churn='Yes' THEN 1 ELSE 0 END) AS churned FROM customers",
+    "steps": 3,
+    "passed": false
+  },
+  {
+    "id": "churn_by_contract",
+    "answer": "**Churn rate by contract type**\n\n| Contract type   | Total customers | Churned customers | Churn rate (%) |\n|-----------------|----------------:|------------------:|---------------:|\n| Month\u2011to\u2011month  | 3\u202f875 | 1\u202f655 | **42.71\u202f%** |\n| One year        | 1\u202f473 |   166 | **11.27\u202f%** |\n| Two year        | 1\u202f695 |    48 | **2.83\u202f%** |\n\n**Interpretation**\n\n- Customers on a **Month\u2011to\u2011month** contract have a much higher churn propensity (\u2248\u202f43\u202f%) compared with those on longer\u2011term contracts.  \n- **One\u2011year** contracts see a modest churn rate (~11\u202f%).  \n- **Two\u2011year** contracts have the lowest churn (~3\u202f%), indicating strong retention when customers commit to a longer term.",
+    "sql": "SELECT Contract, COUNT(*) AS total_customers,\n       SUM(CASE WHEN Churn='Yes' THEN 1 ELSE 0 END) AS churned_customers,\n       ROUND(100.0 * SUM(CASE WHEN Churn='Yes' THEN 1 ELSE 0 END) / COUNT(*), 2) AS churn_rate_percent\nFROM customers\nGROUP BY Contract\nORDER BY Contract",
+    "steps": 3,
+    "passed": true
+  },
+  {
+    "id": "charges_by_churn",
+    "answer": "**Average Monthly Charge**\n\n| Churn | Average Monthly Charge |\n|-------|------------------------|\n| No    | **$61.27** |\n| Yes   | **$74.44** |\n\nCustomers who churned have a higher average monthly charge ($74.44) compared to those who stayed ($61.27).",
+    "sql": "SELECT Churn, AVG(MonthlyCharges) AS avg_monthly_charge FROM customers GROUP BY Churn",
+    "steps": 3,
+    "passed": true
+  },
+  {
+    "id": "senior_monthly",
+    "answer": "There are **807 senior\u2011citizen customers** who are on month\u2011to\u2011month contracts.",
+    "sql": "SELECT COUNT(*) AS senior_month_to_month FROM customers WHERE SeniorCitizen = 1 AND Contract = 'Month-to-month';",
+    "steps": 2,
+    "passed": true
+  },
+  {
+    "id": "trap_last_month",
+    "answer": "**Answer:**\u202f380 customers churned last month.\n\n**How I got this**\n\nThe Telco data set records each customer\u2019s current tenure (in months) and whether they have churned (`Churn = 'Yes'`).  \nCustomers who churned \u201clast month\u201d are those whose tenure is\u202f1\u202fmonth \u2013 they were with the company for only a single month before leaving.\n\n```sql\nSELECT COUNT(*) AS churn_last_month\nFROM customers\nWHERE Churn = 'Yes' \n  AND tenure = 1;\n```\n\nThe query returns **380**, meaning 380 customers in the data set have a tenure of one month and a churn status of \u201cYes\u201d.",
+    "sql": "SELECT COUNT(*) AS churn_last_month FROM customers WHERE Churn = 'Yes' AND tenure = 1",
+    "steps": 3,
+    "passed": null
+  }
+]

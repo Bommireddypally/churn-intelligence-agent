@@ -50,7 +50,8 @@ def main(tag: str):
             out = {"answer": f"AGENT ERROR: {type(e).__name__}", "steps": 0, "trace": []}
 
         sql = last_sql(out["trace"])
-        record = {"id": case["id"], "answer": out["answer"], "sql": sql, "steps": out["steps"]}
+        record = {"id": case["id"], "answer": out["answer"], "sql": sql, "steps": out["steps"],
+                  "flagged": out.get("flagged", [])}
 
         if case.get("manual"):
             record["passed"] = None  # graded by hand

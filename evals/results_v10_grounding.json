@@ -1,0 +1,50 @@
+[
+  {
+    "id": "count_all",
+    "answer": "Total customers: 7043 (no filters applied).",
+    "sql": "SELECT COUNT(*) AS total_customers FROM customers",
+    "steps": 2,
+    "flagged": [],
+    "passed": true
+  },
+  {
+    "id": "churn_rate",
+    "answer": "Overall churn rate: **26.54%** (no filters applied).",
+    "sql": "SELECT ROUND(100.0 * SUM(CASE WHEN Churn = 'Yes' THEN 1 ELSE 0 END) / COUNT(*), 2) AS churn_rate FROM customers",
+    "steps": 2,
+    "flagged": [],
+    "passed": true
+  },
+  {
+    "id": "churn_by_contract",
+    "answer": "- Month-to-month: 42.71% churn rate  \n- One year: 11.27% churn rate  \n- Two year: 2.83% churn rate  \n\n(Computed by grouping on `Contract`.)",
+    "sql": "SELECT Contract, ROUND(100.0 * SUM(CASE WHEN Churn = 'Yes' THEN 1 ELSE 0 END) / COUNT(*), 2) AS churn_rate FROM customers GROUP BY Contract ORDER BY Contract",
+    "steps": 2,
+    "flagged": [],
+    "passed": true
+  },
+  {
+    "id": "charges_by_churn",
+    "answer": "Average monthly charge:  \n- Non\u2011churned (Churn = No): 61.27  \n- Churned (Churn = Yes): 74.44  \n\n(Computed by grouping on Churn and averaging MonthlyCharges.)",
+    "sql": "SELECT Churn, ROUND(AVG(MonthlyCharges), 2) AS avg_monthly_charge FROM customers GROUP BY Churn ORDER BY Churn",
+    "steps": 2,
+    "flagged": [],
+    "passed": true
+  },
+  {
+    "id": "senior_monthly",
+    "answer": "There are **807** senior citizens on month\u2011to\u2011month contracts.",
+    "sql": "SELECT COUNT(*) AS senior_month_to_month FROM customers WHERE SeniorCitizen = 1 AND Contract = 'Month-to-month';",
+    "steps": 2,
+    "flagged": [],
+    "passed": true
+  },
+  {
+    "id": "trap_last_month",
+    "answer": "The data does not include any date or time information, so it cannot answer how many customers churned last month.",
+    "sql": null,
+    "steps": 1,
+    "flagged": [],
+    "passed": null
+  }
+]
