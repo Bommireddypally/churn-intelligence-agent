@@ -1,0 +1,52 @@
+[
+  {
+    "id": "count_all",
+    "answer": "Total customers: 7043 (no filters applied).",
+    "sql": "SELECT COUNT(*) AS total_customers FROM customers",
+    "steps": 2,
+    "flagged": [],
+    "passed": true
+  },
+  {
+    "id": "churn_rate",
+    "answer": "Overall churn rate: **26.54%** (calculated over all customers).",
+    "sql": "SELECT ROUND(100.0 * SUM(CASE WHEN Churn = 'Yes' THEN 1 ELSE 0 END) / COUNT(*), 2) AS churn_rate FROM customers",
+    "steps": 2,
+    "flagged": [],
+    "passed": true
+  },
+  {
+    "id": "churn_by_contract",
+    "answer": "Contract\u202f|\u202fChurn\u202fRate (%)\n---|---\nMonth-to-month\u202f|\u202f42.71  \nOne year\u202f|\u202f11.27  \nTwo year\u202f|\u202f2.83  \n\n(Computed by grouping on `Contract` and calculating\u202fROUND(100\u202f*\u202fchurn\u202f/\u202ftotal,\u202f2)).",
+    "sql": "SELECT Contract,\n       ROUND(100.0 * SUM(CASE WHEN Churn = 'Yes' THEN 1 ELSE 0 END) / COUNT(*), 2) AS churn_rate\nFROM customers\nGROUP BY Contract\nORDER BY Contract",
+    "steps": 3,
+    "flagged": [
+      2.0
+    ],
+    "passed": true
+  },
+  {
+    "id": "charges_by_churn",
+    "answer": "Average monthly charge:  \n- Non\u2011churned (Churn = No): 61.27  \n- Churned (Churn = Yes): 74.44  \n\n(Computed by grouping on\u202fChurn and averaging\u202fMonthlyCharges.)",
+    "sql": "SELECT Churn, ROUND(AVG(MonthlyCharges), 2) AS avg_monthly_charge FROM customers GROUP BY Churn ORDER BY Churn",
+    "steps": 2,
+    "flagged": [],
+    "passed": true
+  },
+  {
+    "id": "senior_monthly",
+    "answer": "There are **807** senior citizens on month\u2011to\u2011month contracts.",
+    "sql": "SELECT COUNT(*) AS senior_month_to_month FROM customers WHERE SeniorCitizen = 1 AND Contract = 'Month-to-month';",
+    "steps": 3,
+    "flagged": [],
+    "passed": true
+  },
+  {
+    "id": "trap_last_month",
+    "answer": "I\u2019m sorry, but the data does not include any date or time information, so I can\u2019t determine churn for \u201clast month.\u201d",
+    "sql": null,
+    "steps": 1,
+    "flagged": [],
+    "passed": null
+  }
+]

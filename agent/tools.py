@@ -5,9 +5,10 @@ TOOLS = [
            "type": "function",
            "function": {
                "name": "query_customers",
-               "description": (
+                "description": (
                    "Run ONE read-only SQL query (SELECT or WITH only) on the DuckDB "
-                   "table `customers` (Telco customers, one row per customer). "
+                   "tables `customers` (Telco customers, one row per customer) and "
+                   "`customer_scores` (model churn probability per customer). "
                    "Returns at most 50 rows plus a `truncated` flag."
                ),
                "parameters": {

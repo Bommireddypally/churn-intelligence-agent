@@ -49,3 +49,11 @@ def encode_row(raw: dict) -> np.ndarray:
 def score_row(raw: dict) -> float:
     X = encode_row(raw).reshape(1, -1)
     return float(model.predict_proba(scaler.transform(X))[0][1])
+
+def score_all(df):
+    """Vectorized scores for a customers DataFrame."""
+    X = df[FEATURES].copy()
+    for col, le in encoders.items():
+        if col in X.columns:  # skips the leftover 'Churn' encoder
+            X[col] = le.transform(X[col])
+    return model.predict_proba(scaler.transform(X.to_numpy()))[:, 1]

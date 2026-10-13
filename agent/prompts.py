@@ -54,11 +54,16 @@ def build_schema_text() -> str:
         con.close()
 
 
+SCORES_NOTE = """
+   Table `customer_scores` (one row per customer): customerID, churn_prob (a model's estimated churn probability, 0 to 1). Join it to `customers` on customerID. 'Most likely to churn' means highest churn_prob. These are model estimates, not facts, and the model was trained on this same data.
+   """
+
 SYSTEM_PROMPT = (
-    "You are a churn analytics assistant. Answer questions about the Telco "
-    "customers table using the query_customers tool. Keep answers short: "
-    "state the result and which filter or grouping you used.\n\n"
-    + build_schema_text()
-    + "\n"
-    + BUSINESS_RULES
+       "You are a churn analytics assistant. Answer questions about the Telco "
+       "customers table using the query_customers tool. Keep answers short: "
+       "state the result and which filter or grouping you used.\n\n"
+       + build_schema_text()
+       + "\n"
+       + SCORES_NOTE
+       + BUSINESS_RULES
 )

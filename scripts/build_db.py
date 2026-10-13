@@ -1,5 +1,8 @@
+   # FILE: scripts/build_db.py
 import duckdb
 import pandas as pd
+
+from agent.model_service import score_all
 
 CSV_PATH = "data/telco_churn.csv"
 DB_PATH = "data/telco.duckdb"
@@ -13,10 +16,15 @@ def load_clean() -> pd.DataFrame:
 
 def main():
     df = load_clean()
+    scores = pd.DataFrame(
+        {"customerID": df["customerID"], "churn_prob": score_all(df).round(4)}
+    )
     con = duckdb.connect(DB_PATH)
     con.execute("CREATE OR REPLACE TABLE customers AS SELECT * FROM df")
+    con.execute("CREATE OR REPLACE TABLE customer_scores AS SELECT * FROM scores")
     n = con.execute("SELECT COUNT(*) FROM customers").fetchone()[0]
-    print(f"customers table: {n} rows")
+    m = con.execute("SELECT COUNT(*) FROM customer_scores").fetchone()[0]
+    print(f"customers: {n} rows, customer_scores: {m} rows")
     con.close()
 
 
