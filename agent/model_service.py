@@ -50,6 +50,26 @@ def score_row(raw: dict) -> float:
     X = encode_row(raw).reshape(1, -1)
     return float(model.predict_proba(scaler.transform(X))[0][1])
 
+def explain_row(raw: dict, top_n: int = 5) -> dict:
+    """Exact SHAP values for a linear model: coefficient x scaled value.
+    The scaler centers every feature, so the base value is the intercept."""
+    x_scaled = scaler.transform(encode_row(raw).reshape(1, -1))[0]
+    contribs = model.coef_[0] * x_scaled  # log-odds contribution per feature
+    order = np.argsort(-np.abs(contribs))[:top_n]
+    drivers = [
+        {
+            "feature": FEATURES[i],
+            "value": raw[FEATURES[i]],  # the readable value, not the encoded number
+            "contribution": float(round(contribs[i], 4)),
+            "direction": "raises churn risk" if contribs[i] > 0 else "lowers churn risk",
+        }
+        for i in order
+    ]
+    return {
+        "churn_probability": round(score_row(raw), 4),
+        "base_logit": float(round(model.intercept_[0], 4)),
+        "drivers": drivers,
+    }
 def score_all(df):
     """Vectorized scores for a customers DataFrame."""
     X = df[FEATURES].copy()

@@ -5,14 +5,13 @@ import os
 from dotenv import load_dotenv
 from openai import OpenAI
 
-from agent.answer_check import ungrounded_numbers
+from agent.offers import DraftStore
 from agent.prompts import SYSTEM_PROMPT
 from agent.tools import TOOLS, dispatch
 
 load_dotenv()
 
 MAX_STEPS = 8
-MAX_ANSWER_RETRIES = 1
 MODEL = os.environ["GROQ_MODEL"]
 
 client = OpenAI(
@@ -23,16 +22,15 @@ client = OpenAI(
 )
 
 
-def run_agent(question: str) -> dict:
+def run_agent(question: str, store: DraftStore | None = None) -> dict:
+    store = store if store is not None else DraftStore()
+    store.new_request()  # the per-request draft limit starts fresh
+
     messages = [
         {"role": "system", "content": SYSTEM_PROMPT},
         {"role": "user", "content": question},
     ]
-
-    trace = []      # (tool name, arguments) per call, for evals and debugging
-    tool_rows = []  # every row any tool returned, for the answer check
-    retries = 0
-    flagged = []
+    trace = []  # (tool name, arguments) per call, for evals and debugging
 
     for step in range(MAX_STEPS):
         resp = client.chat.completions.create(
@@ -43,29 +41,8 @@ def run_agent(question: str) -> dict:
         )
         msg = resp.choices[0].message
 
-        # No tool requested -> the model wants to give its final answer
         if not msg.tool_calls:
-            flagged = ungrounded_numbers(msg.content or "", tool_rows, question)
-            if flagged and retries < MAX_ANSWER_RETRIES:
-                retries += 1
-                messages.append(msg)
-                messages.append(
-                    {
-                        "role": "user",
-                        "content": (
-                            f"Your answer contains numbers that no tool returned: {flagged}. "
-                            "Run a query that returns them (do the arithmetic inside SQL), "
-                            "or remove them from your answer."
-                        ),
-                    }
-                )
-                continue
-            return {
-                "answer": msg.content,
-                "steps": step + 1,
-                "trace": trace,
-                "flagged": flagged,
-            }
+            return {"answer": msg.content, "steps": step + 1, "trace": trace}
 
         messages.append(msg)
 
@@ -78,10 +55,7 @@ def run_agent(question: str) -> dict:
                 args = {}
                 result = {"error": "Bad arguments"}
             else:
-                result = dispatch(call.function.name, args)
-
-            if isinstance(result, dict) and "rows" in result:
-                tool_rows.extend(result["rows"])
+                result = dispatch(call.function.name, args, store=store)
 
             trace.append((call.function.name, args))
             messages.append(
@@ -92,9 +66,4 @@ def run_agent(question: str) -> dict:
                 }
             )
 
-    return {
-        "answer": "Stopped: step limit reached.",
-        "steps": MAX_STEPS,
-        "trace": trace,
-        "flagged": flagged,
-    }
+    return {"answer": "Stopped: step limit reached.", "steps": MAX_STEPS, "trace": trace}

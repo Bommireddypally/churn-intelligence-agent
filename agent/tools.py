@@ -1,6 +1,7 @@
 # FILE: agent/tools.py
 from agent import model_service
 from agent.db import run_query
+from agent.offers import MAX_DISCOUNT_PCT, OFFER_TYPES, MAX_DRAFTS_PER_REQUEST
 
 TOOLS = [
     {
@@ -44,11 +45,35 @@ TOOLS = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "draft_offer",
+            "description": (
+                "Create a DRAFT retention offer for ONE customer. Nothing is sent: "
+                "a human must approve the draft in the UI. "
+                f"Maximum discount {MAX_DISCOUNT_PCT} percent; at most "
+                f"{MAX_DRAFTS_PER_REQUEST} drafts per request. If the message "
+                "mentions a percentage it must equal discount_pct."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "customer_id": {"type": "string"},
+                    "offer_type": {"type": "string", "enum": list(OFFER_TYPES)},
+                    "discount_pct": {"type": "number", "description": "Percent, 0 to the maximum."},
+                    "message": {"type": "string", "description": "Short customer-facing message."},
+                },
+                "required": ["customer_id", "offer_type", "discount_pct", "message"],
+            },
+        },
+    },
 ]
 
 
-def dispatch(name: str, args: dict) -> dict:
-    """Run a tool by name. Always returns a dict, never raises."""
+def dispatch(name: str, args: dict, store=None) -> dict:
+    """Run a tool by name. Always returns a dict, never raises.
+    `send_offer` is deliberately not a tool: only the UI's Approve button sends."""
     if name == "query_customers":
         return run_query(args.get("sql", ""))
     if name == "explain_prediction":
@@ -59,4 +84,13 @@ def dispatch(name: str, args: dict) -> dict:
         if raw is None:
             return {"error": f"Unknown customer_id: {cid}"}
         return model_service.explain_row(raw, top_n=5)
+    if name == "draft_offer":
+        if store is None:
+            return {"error": "Drafting is not available in this context"}
+        return store.draft(
+            args.get("customer_id"),
+            args.get("offer_type"),
+            args.get("discount_pct"),
+            args.get("message"),
+        )
     return {"error": f"Unknown tool: {name}"}
