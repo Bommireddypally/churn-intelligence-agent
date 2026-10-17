@@ -10,16 +10,18 @@ with open(f"evals/results_{sys.argv[1]}.json", encoding="utf-8") as f:
     results = json.load(f)
 
 for r in results:
-    if r["passed"] is False:
+    case = cases[r["id"]]
+    if r["passed"] is False or r["passed"] is None:
         print("=" * 60)
-        print(r["id"], "|", cases[r["id"]]["question"])
-        print("AGENT SQL:", r["sql"])
-        got = run_query(r["sql"]) if r["sql"] else None
-        print("AGENT ROWS:", got.get("rows", got) if got else None)
-        gold = run_query(cases[r["id"]]["gold_sql"])
-        print("GOLD ROWS: ", gold.get("rows", gold))
-        print("AGENT SAID:", r["answer"])
-    elif r["passed"] is None:
-        print("=" * 60)
-        print("MANUAL CASE:", r["id"])
+        label = "MANUAL" if r["passed"] is None else "FAILED"
+        print(label, r["id"], f"[{r['kind']}]", "|", case["question"])
+        print("TOOLS CALLED:", r["tools"])
+        if r["kind"] == "sql":
+            sql = r["detail"].get("sql")
+            got = run_query(sql) if sql else None
+            print("AGENT SQL:", sql)
+            print("AGENT ROWS:", got.get("rows", got) if got else None)
+            print("GOLD ROWS: ", run_query(case["gold_sql"]).get("rows"))
+        else:
+            print("DETAIL:", r["detail"])
         print("AGENT SAID:", r["answer"])
