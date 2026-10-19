@@ -1,11 +1,14 @@
-   # FILE: scripts/build_db.py
+# FILE: scripts/build_db.py
+from pathlib import Path
+
 import duckdb
 import pandas as pd
 
 from agent.model_service import score_all
 
-CSV_PATH = "data/telco_churn.csv"
-DB_PATH = "data/telco.duckdb"
+ROOT = Path(__file__).resolve().parent.parent
+CSV_PATH = ROOT / "data" / "telco_churn.csv"
+DB_PATH = ROOT / "data" / "telco.duckdb"
 
 
 def load_clean() -> pd.DataFrame:
@@ -19,7 +22,7 @@ def main():
     scores = pd.DataFrame(
         {"customerID": df["customerID"], "churn_prob": score_all(df).round(4)}
     )
-    con = duckdb.connect(DB_PATH)
+    con = duckdb.connect(str(DB_PATH))
     con.execute("CREATE OR REPLACE TABLE customers AS SELECT * FROM df")
     con.execute("CREATE OR REPLACE TABLE customer_scores AS SELECT * FROM scores")
     n = con.execute("SELECT COUNT(*) FROM customers").fetchone()[0]

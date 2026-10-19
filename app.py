@@ -1,10 +1,30 @@
 # FILE: app.py
+import os
+from pathlib import Path
+
 import streamlit as st
 
-from agent.loop import run_agent
-from agent.offers import DraftStore, MAX_DISCOUNT_PCT, MAX_DRAFTS_PER_REQUEST
-
 st.set_page_config(page_title="Churn Intelligence Agent", layout="wide")
+
+# --- Startup: secrets and database ---------------------------------------
+# On Streamlit Cloud the Groq settings come from the app's Secrets; locally from .env.
+try:
+    for _key in ("GROQ_API_KEY", "GROQ_MODEL"):
+        if _key not in os.environ and _key in st.secrets:
+            os.environ[_key] = st.secrets[_key]
+except Exception:
+    pass  # no secrets file locally: .env is used instead
+
+# The .duckdb file is not in git, so build it on first run (about a second).
+if not (Path(__file__).parent / "data" / "telco.duckdb").exists():
+    from scripts.build_db import main as build_db
+
+    build_db()
+
+from agent.loop import run_agent  # noqa: E402  (must come after the setup above)
+from agent.offers import DraftStore, MAX_DISCOUNT_PCT, MAX_DRAFTS_PER_REQUEST  # noqa: E402
+
+# --- Page ----------------------------------------------------------------
 st.title("Churn Intelligence Agent")
 st.warning(
     "Demo on the public Telco dataset. Sending is a MOCK: the data has no contact "
