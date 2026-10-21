@@ -1,119 +1,121 @@
 # Churn Intelligence Agent
 
-An LLM agent that answers questions about Telco customer churn by calling tools over a DuckDB table and a trained churn model. The design rule is simple: **the LLM decides what to look up and say; code decides what is allowed.** The model never executes code, writes to the database, or sends anything.
+An LLM agent that finds at-risk Telco customers, explains what drives each customer's churn score, and drafts retention offers, with a human approving anything before it counts as "sent". The design rule: **the LLM decides what to look up and say; code decides what is allowed.**
 
-> **Status: work in progress.** Phase 1 (SQL agent + eval) is done. Phase 2 (model scoring and explanations) is partly done. Offers, the approval UI and deployment are not built yet. See [Status](#status).
+**Live demo:** <<FILL: live Streamlit URL>>
+(Free tier: the app may need a moment to wake up, and the shared Groq quota can occasionally rate-limit a request.)
 
-## What it will do
+> Sending is a **mock**. The Telco dataset has no contact details, so nothing is ever emailed.
 
-Answer questions like *"Who is most likely to churn, why, and what should we offer them?"* by:
+## What it does
 
-1. finding at-risk customers,
-2. scoring them with a trained model,
-3. explaining the drivers behind each score,
-4. drafting a retention offer, and
-5. waiting for a human to click Approve before anything counts as "sent".
+Ask a question such as *"Which 3 customers are most likely to churn and why?"* and the agent:
 
-## Status
-
-| Phase | What | State |
-|---|---|---|
-| 1 | SQL agent on Telco data (DuckDB), guardrails, tool-calling loop, mini eval | Done |
-| 2 | Model scoring (`get_customer`, `encode_row`, `score_row`) | Done, tested |
-| 2 | Per-customer explanations (`explain_row`) and the agent tool for it | In progress |
-| 3 | `draft_offer`, mock send, Streamlit approval step | Not started |
-| 4 | Full eval set (10 cases) and failure analysis | Not started |
-| 5 | Deployment on Streamlit Community Cloud, final README | Not started |
+1. queries the data with read-only SQL,
+2. gets a per-customer explanation from the churn model,
+3. drafts a retention offer if asked, and
+4. waits for a human to click **Approve** in the UI before a draft is marked "sent (mock)".
 
 ## Architecture
 
 ```
-User question
-     |
-     v
- Streamlit UI (planned)  --->  Agent loop (agent/loop.py, max 8 steps)
-                                   |  model -> tool call -> result -> model
-                                   v
-                          Tool dispatcher (agent/tools.py)
-                  _______________|________________________
-                 |                |                       |
-        query_customers   explain_prediction (planned)   draft_offer (planned)
-                 |                |                       |
-        guardrails.py +     model_service.py         offers.py + cap
-        read-only DuckDB    (encoders, scaler,       (limits in code)
-                            logistic regression)
-                                                          |
-                                           Human clicks Approve in the UI
-                                                          |
-                                                 send_offer (mock, code only)
+Streamlit UI (app.py)  ---->  Agent loop (agent/loop.py, max 8 steps)
+ chat + draft cards            model -> tool call -> result -> model
+ Approve button                          |
+        |                                v
+        |                    Tool dispatcher (agent/tools.py)
+        |             ____________|______________________________
+        |            |                  |                       |
+        |    query_customers    explain_prediction        draft_offer
+        |            |                  |                       |
+        |   guardrails.py +       model_service.py         offers.py
+        |   read-only DuckDB      encoders -> scaler ->    cap, allowlist,
+        |                         logistic regression      per-request limit
+        |                         (exact SHAP values)             |
+        |                                                         v
+        +------- only caller ------------------------>  DraftStore.approve()
+                                                        (mock send, code only)
 ```
 
-Key design choices:
+Design choices worth knowing:
 
-- **Guardrails live in code, not in the prompt.** The SQL check, the read-only database connection and (planned) the discount cap are all enforced by code and covered by tests.
-- **Tools take customer IDs, not feature values.** The code looks up the row, so the model cannot mistype features.
-- **`send_offer` is not a model tool.** Only the Approve button's code calls it, so approval is enforced by structure.
-- **The model may only state churn drivers that `explain_prediction` returned** (planned; the tool is not wired in yet).
+- **Guardrails live in code, not in the prompt,** so they are unit-tested and cannot be talked around.
+- **Tools take customer IDs, not feature values.** The code looks up the row, so the model cannot mistype 19 features.
+- **`send_offer` is not a model tool.** The only call to `approve()` is behind the Approve button (checked with a one-line search of the code, and by a test that the dispatcher rejects a `send_offer` call).
+- **"Who is most likely to churn" needs scores for everyone,** so all 7,043 customers are scored once when the database is built and stored in a `customer_scores` table. The agent ranks them with ordinary SQL.
+- **The model may only name drivers that `explain_prediction` returned** (enforced by a prompt rule and checked by an eval case; see the failure analysis for how reliable that is).
 
 ## Tools
 
-| Tool | State | Notes |
-|---|---|---|
-| `query_customers(sql)` | Built | One read-only `SELECT`/`WITH` over the `customers` table, 50-row cap, returns a `truncated` flag |
-| `explain_prediction(customer_id)` | In progress | Probability plus top drivers, shown with readable feature values |
-| `draft_offer(...)` | Planned | Discount cap and per-request draft limit enforced in code |
-| `send_offer` | Planned | Mock only, never exposed to the model |
+| Tool | What it does |
+|---|---|
+| `query_customers(sql)` | One read-only `SELECT`/`WITH` over `customers` and `customer_scores`; 50-row cap with a `truncated` flag |
+| `explain_prediction(customer_id)` | Churn probability plus the top 5 features pushing it up or down, shown with readable values |
+| `draft_offer(...)` | Creates a **draft** for one customer; nothing is sent |
+| *(send)* | Not a tool. Only the UI's Approve button can call `approve()` (mock) |
 
 ## Guardrails
 
-Built:
-
-- SQL must start with `SELECT` or `WITH`; one statement only.
-- Whole-word keyword blocklist (writes, `ATTACH`, `COPY`, `INSTALL`, `LOAD`, `PRAGMA`, `EXPORT`, `read_*`, `glob`).
-- DuckDB is opened `read_only=True`, so a write fails even if the keyword check were bypassed.
-- Result rows capped at 50, with a `truncated` flag so the model cannot imply it saw everything.
-- Tool errors are returned as data, so the model can read them instead of the loop crashing.
-- `temperature=0` and a client timeout.
-
-Planned: maximum discount, allowlist of offer types, at most 5 drafts per request, no bulk send, and logs that contain tool names and counts but no argument values or message text.
+| Rule | Enforced in | Tested |
+|---|---|---|
+| SQL must be a single `SELECT`/`WITH`; whole-word keyword blocklist incl. DuckDB-specific `ATTACH`, `COPY`, `read_*` | `agent/guardrails.py` | `tests/test_guardrails.py` |
+| Database opened `read_only=True` (second layer) | `agent/db.py` | `tests/test_run_query.py` |
+| Result rows capped at 50, `truncated` flag returned | `agent/db.py` | `tests/test_run_query.py` |
+| Maximum discount 20%; over-cap drafts are **rejected**, not silently reduced | `agent/offers.py` | `tests/test_offers.py` |
+| Offer type must be on an allowlist | `agent/offers.py` | `tests/test_offers.py` |
+| A message may not promise a percentage different from the approved discount | `agent/offers.py` | `tests/test_offers.py` |
+| At most 5 drafts per request; no bulk send | `agent/offers.py` | `tests/test_offers.py` |
+| Nothing is "sent" without a click | `app.py` (sole `approve()` caller) | `tests/test_offers.py`, eval case |
+| Tool arguments and message text are not logged; the UI shows tool names only | `app.py`, `agent/loop.py` | by inspection |
 
 ## The model
 
-The scoring model comes from a separate project, [churn-mlops](https://github.com/Bommireddypally/churn-mlops). It is a **logistic regression** with per-column label encoders and a standard scaler, saved as separate files in `artifacts/`:
+The scorer comes from a separate project, [churn-mlops](https://github.com/Bommireddypally/churn-mlops): a **logistic regression** with per-column label encoders and a standard scaler, stored in `artifacts/` (about 8 KB). Scoring replays the training recipe: label-encode, order columns per `feature_columns.json`, scale, `predict_proba`. Tests compare the per-customer path with an independent vectorized path.
 
-`model.pkl`, `scaler.pkl`, `encoders.pkl`, `feature_columns.json`
+Because the model is linear, each feature's SHAP value has a closed form (coefficient times the scaled value, with the intercept as the base value), so explanations need no extra runtime dependency. A test checks that the contributions add back up to the model's output.
 
-Scoring replays the training recipe: label-encode each categorical column, order columns as in `feature_columns.json`, scale, then `predict_proba`. A test checks the per-customer path against an independent vectorized path.
+Pickles must be loaded with the scikit-learn version that wrote them, so `requirements.txt` pins `scikit-learn==1.8.0`.
 
-Because the model is linear, each feature's SHAP value has a closed form (coefficient times the scaled value), so explanations need no extra runtime dependency.
+## Evaluation
 
-## Project structure
+**Method.** Ten cases: five SQL questions graded by comparing the **result rows** of the agent's last query with a hand-written gold query (rounded to 2 decimals; extra columns allowed; wrong or missing values are not), one explanation case, two safety cases (an over-cap offer and "send an offer to every customer"), and two unanswerable questions graded by hand. The agent runs at `temperature=0`; the same prompt can still produce different SQL text between runs, which is why the eval compares rows and not strings.
 
-```
-agent/
-  db.py              read-only run_query with row cap
-  guardrails.py      check_sql
-  loop.py            tool-calling loop (max 8 steps)
-  model_service.py   load artifacts, encode, score
-  prompts.py         schema (read from the DB) + business rules
-  tools.py           tool schemas and dispatcher
-artifacts/           model, scaler, encoders, feature order
-data/telco_churn.csv
-evals/               cases.json, run_evals.py, show_failures.py, RESULTS.md
-scripts/build_db.py  CSV -> DuckDB (cleans TotalCharges)
-tests/               guardrails, run_query, data, model service, eval cases
-```
+| Run | Change | Automatic | Trap questions (manual) |
+|---|---|---|---|
+| v8 (first clean baseline, 6 cases) | none | 4/5 | last month: fail |
+| v9 | prompt rule: do all arithmetic in SQL | 4/5 | last month: fail |
+| v14 (final, 10 cases) | added explain, over-cap, bulk-send, second trap | <<FILL: x/8>> | last month: <<FILL>> · Q3: <<FILL>> |
 
-## Setup (Windows `cmd`)
+<<FILL: one line on the three new automatic cases, e.g. "the model attempted a 50% draft N time(s) and the code blocked it each time", taken from `detail` in the v14 results.>>
 
-`requirements.txt` is not written yet (Phase 5). For now:
+## Failure analysis
+
+1. **`churn_rate` fails.** The agent's SQL returned only the two counts (7,043 and 1,869) and the model did the division itself, answering "about 26.5%" where the SQL-computed value is 26.54. I added a prompt rule requiring all arithmetic inside SQL and confirmed it was loaded; the next run produced identical SQL and the same failure. **A prompt rule alone did not change the behavior.** Likely fix, not yet built: a dedicated metric tool that returns finished rates.
+2. **Unanswerable questions get invented answers.** The table has no date column, yet "how many customers churned last month?" was answered with 380, by reinterpreting "last month" as "tenure of one month". The same question was refused correctly in other runs, so this is non-determinism, not a consistent bug. Grading with a hand-written rubric (it passes only if the agent says the data cannot answer and presents no number as that period's churn) kept the judgment consistent. <<FILL: one line on the Q3 result.>>
+3. **Invented currency.** Average monthly charges were sometimes printed with a `$` although the data has no currency, despite an explicit rule against it.
+4. **Causal language.** Answers sometimes added advice such as "encouraging customers to switch… could significantly reduce churn", which the data does not support.
+
+**A process finding.** My first four eval runs scored against placeholder gold queries that the SQL guardrail blocked, so those scores measured nothing. The cause was only visible because the diagnostic script printed the gold query's actual result. I now stop the run if any gold query errors, and a test fails on duplicate case ids or an erroring gold query.
+
+## Limitations
+
+- **Sending is a mock.** No contact details exist in the data.
+- **Scores are in-sample.** The model was trained on all 7,043 rows with no holdout, so a customer's score is not an out-of-sample prediction.
+- **Label-encoded categoricals.** The linear model treats each encoded category as a number, so contributions for multi-valued columns (for example payment method) reflect that ordering, not a true per-category effect. One-hot encoding would be the proper fix.
+- **Drivers are not causes.** They describe what the model's score responds to.
+- **No time dimension.** The data is a snapshot; period and trend questions cannot be answered.
+- **Small eval.** Ten cases; the scores are indicative, not statistically meaningful.
+- **Free tiers.** The LLM runs on Groq's free tier (rate limits apply), and the app on Streamlit Community Cloud (it sleeps when idle).
+- **Drafts live in the browser session.** Refreshing the page clears them.
+
+## Run it locally (Windows `cmd`)
 
 ```
 git clone https://github.com/Bommireddypally/churn-intelligence-agent.git
 cd churn-intelligence-agent
 python -m venv venv
 venv\Scripts\activate
-pip install duckdb pandas openai python-dotenv pytest joblib==1.5.3 scikit-learn==1.8.0
+pip install -r requirements.txt pytest streamlit
 ```
 
 Create a `.env` file (never commit it):
@@ -123,51 +125,35 @@ GROQ_API_KEY=your_key
 GROQ_MODEL=a_groq_model_that_supports_tool_calling
 ```
 
-Build the database and run the tests:
-
 ```
-python scripts\build_db.py
-python -m pytest -q
-```
-
-Ask the agent a question:
-
-```
-python -c "from agent.loop import run_agent; r = run_agent('What is the churn rate by contract type?'); print(r['answer']); print(r['trace'])"
+python -m scripts.build_db        # builds the DuckDB file and the scores table
+python -m pytest -q               # tests
+streamlit run app.py              # the app
+python -m evals.run_evals mytag   # the eval (writes evals/results_mytag.json)
 ```
 
-Pickles must be loaded with the scikit-learn version that wrote them (1.8.0). The `artifacts/` files are copied from the churn-mlops project.
+The app builds the database itself on first start if it is missing.
 
-## Evaluation
+## Deployment notes
 
-The eval compares the **result rows of the agent's last SQL query** with the rows from a hand-written gold query (values compared after rounding to 2 decimals; extra columns allowed; wrong or missing values are not). A trap question with no answer in the data is graded by hand.
+Deployed on Streamlit Community Cloud with Python <<FILL: version chosen>>. The Python version is chosen in the dialog's Advanced settings at deploy time (it cannot be changed afterwards without redeploying). The Groq key and model name are set in the app's Secrets and are not in the repository.
 
-| Run | Change | Auto score | Trap case |
-|---|---|---|---|
-| v8_baseline | none (first clean baseline) | 4/5 | fail |
-| v9_arith | prompt rule: do all arithmetic in SQL | 4/5 | fail |
+## Project structure
 
-Earlier runs are excluded: four gold queries were still placeholders, so those scores measured nothing. A guard test now fails if any gold query errors or case ids repeat.
+```
+app.py                  Streamlit UI and the Approve button
+agent/                  db, guardrails, loop, model_service, offers, prompts, tools
+artifacts/              model, scaler, encoders, feature order (from churn-mlops)
+data/telco_churn.csv    source data
+scripts/build_db.py     CSV -> DuckDB (+ customer_scores)
+evals/                  cases.json, run_evals.py, show_failures.py, RESULTS.md
+tests/                  guardrails, queries, model service, explanations, tools, offers, prompts, eval cases
+requirements.txt
+```
 
-## Known issues (open)
+## What I would do next
 
-- **`churn_rate`:** the model fetches the two counts and divides them itself, answering "about 26.5%" instead of the SQL-computed 26.54. A prompt rule asking for SQL-side arithmetic was loaded and ignored, so prompt rules alone are not reliable here.
-- **Trap question ("customers churned last month"):** the table has no date column, yet the agent sometimes substitutes a different question (for example, tenure of one month) and answers with a real but irrelevant number.
-- **Currency:** the agent sometimes prints a `$` sign although the data has no currency.
-- **Causal language:** the agent sometimes suggests causes ("could significantly reduce churn") that the data does not support.
-
-## Limitations
-
-- **Sending is a mock.** The Telco data has no contact details, so nothing is ever emailed.
-- **Scores are in-sample.** The model was trained on all 7,043 rows with no holdout, so a customer's score is not an out-of-sample prediction.
-- **Label-encoded categoricals.** The linear model treats each encoded category as a number, so contributions for multi-valued columns (for example payment method) reflect that ordering rather than a true per-category effect.
-- **No time dimension.** The data is a snapshot, so questions about periods or trends cannot be answered.
-- **Small eval.** Five automatic cases and one manual case so far; scores are indicative, not statistically meaningful.
-- **Free tiers.** The LLM runs on Groq's free tier and is subject to its rate limits; runs are close to, but not perfectly, repeatable.
-
-## Roadmap
-
-1. Finish `explain_row` and wire it in as `explain_prediction`; add per-customer scores to the database build.
-2. `draft_offer` with the cap and limits, plus the Streamlit approval page.
-3. Grow the eval to 10 cases (tool choice, refusals such as an over-cap offer or "email every customer", and a second, different unanswerable question) and write the failure analysis.
-4. `requirements.txt`, deployment on Streamlit Community Cloud, final README and pitch.
+1. A metric tool that returns finished rates, replacing the prompt rule that did not hold.
+2. Retrain with one-hot encoding and a holdout set, and report out-of-sample scores.
+3. A larger eval, with each case run several times to measure the run-to-run variation.
+4. A real delivery integration with consent handling, replacing the mock.
